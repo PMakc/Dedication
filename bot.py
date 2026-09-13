@@ -16,7 +16,7 @@ vk_api_obj=None; upload=None
 def rnd(): return int(database.get_('round','1'))
 def station_for(t): return ((t['start']-1+rnd()-1)%5)+1
 def kb(rows): return {'one_time':False,'buttons':[[{'action':{'type':'text','label':x}} for x in row] for row in rows]}
-def main_kb(): return kb([['🎫 Получить слог'],['🧩 Мои слоги','🔤 Собрать слово'],['📝 Собрать предложение'],['🏆 Клад'],['🔄 Восстановить команду'],['ℹ️ Помощь']])
+def main_kb(): return kb([['🎫 Получить слог'],['🧩 Мои слоги','🔤 Собрать слово'],['📝 Собрать предложение'],['🏆 Клад'],['🔑 Подключить / восстановить'],['ℹ️ Помощь']])
 def send(peer,text,k=None,att=None):
     if not vk_api_obj:return
     p={'peer_id':peer,'random_id':get_random_id(),'message':text}
@@ -86,23 +86,67 @@ def treasure(peer,t):
         item=upload.photo_messages(path,peer_id=peer)[0]; att=f"photo{item['owner_id']}_{item['id']}"; send(peer,'🏆 <b>Место клада найдено!</b>',main_kb(),att)
     except Exception as e: print(e); send(peer,'Ошибка отправки фотографии. Сообщите организатору.',main_kb())
 def msg(event):
-    m=event.object.message; peer=m['peer_id']; uid=m['from_id']; text=(m.get('text') or '').strip(); t=database.by_vk(uid)
-    if not t and '-' in text:
+    m=event.object.message
+    peer=m['peer_id']; uid=m['from_id']; text=(m.get('text') or '').strip()
+    t=database.by_vk(uid)
+
+    # Эти пункты должны работать даже у пользователя, который ещё не привязан.
+    if text in ('🔑 Подключить / восстановить','подключить','восстановить','код'):
+        send(peer,
+             '🔑 <b>Подключение / восстановление капитана</b>\n\n'
+             'Получите временный код у организатора и отправьте его сюда.\n'
+             'Код действует ограниченное время.', main_kb())
+        return
+
+    # Код можно использовать и для первичного подключения, и для замены телефона.
+    if '-' in text and not t:
         tid=database.claim(text,uid,uname(uid))
-        if tid: t=database.team(tid); send(peer,f'✅ Вы назначены капитаном «{t["name"]}». Прогресс сохранён.',main_kb()); return
+        if tid:
+            t=database.team(tid)
+            send(peer,
+                 f'✅ <b>Готово!</b>\n\n'
+                 f'Вы подключены к команде «{t["name"]}».\n'
+                 'Весь прогресс этой команды сохранён.', main_kb())
+            return
+        if len(text)>=10:
+            send(peer,'❌ Код неверный или срок его действия истёк. Попросите организатора создать новый код.',main_kb())
+            return
+
     if not t:
-        send(peer,'👋 Вы ещё не привязаны к команде. Нажмите «🔄 Восстановить команду».',main_kb()); return
-    if text in ('/start','начать','старт'): send(peer,f'🏔 <b>{t["name"]}</b>\nКапитан: {t["captain"] or "—"}\nРаунд: {rnd()}/5\nТекущая станция: {STATIONS[station_for(t)]}',main_kb()); return
+        send(peer,
+             '👋 <b>Добро пожаловать!</b>\n\n'
+             'Вы ещё не привязаны к команде. Нажмите «🔑 Подключить / восстановить» и получите код у организатора.',
+             main_kb())
+        return
+
+    if text in ('/start','начать','старт'):
+        send(peer,
+             f'🏔 <b>{t["name"]}</b>\n'
+             f'Капитан: {t["captain"] or "—"}\n'
+             f'Раунд: {rnd()}/5\n'
+             f'Текущая станция: {STATIONS[station_for(t)]}\n\n'
+             'Используйте кнопки ниже.', main_kb())
+        return
+
     if process_word(peer,t,text): return
     if process_sentence(peer,t,text): return
     if text=='🎫 Получить слог': award(peer,t)
-    elif text=='🧩 Мои слоги': send(peer,'\n'.join(f'{STATIONS[x["station"]]} → <b>{x["syllable"]}</b>' for x in database.awards(t['id'])) or 'Слогов пока нет.',main_kb())
+    elif text=='🧩 Мои слоги':
+        rows=database.awards(t['id'])
+        send(peer, '\n'.join(f'{STATIONS[x["station"]]} → <b>{x["syllable"]}</b>' for x in rows) or 'Слогов пока нет.', main_kb())
     elif text=='🔤 Собрать слово': words_menu(peer,t)
     elif text=='📝 Собрать предложение': sentence_menu(peer,t)
     elif text=='🏆 Клад': treasure(peer,t)
-    elif text=='🔄 Восстановить команду': send(peer,'🔄 Организатор выдаёт временный код. Отправьте его сюда.',main_kb())
-    elif text=='ℹ️ Помощь': send(peer,'1) На каждом раунде нажмите «Получить слог».\n2) После 5 станций соберите слова.\n3) Затем соберите предложение.\n4) После правильного ответа получите фото клада.\n\nТелефон можно заменить кодом восстановления.',main_kb())
+    elif text=='ℹ️ Помощь':
+        send(peer,
+             'ℹ️ <b>Как проходит игра</b>\n\n'
+             '1. На каждом раунде нажмите «🎫 Получить слог».\n'
+             '2. После 5 станций соберите слова.\n'
+             '3. Затем соберите предложение.\n'
+             '4. После правильного ответа откроется клад.\n\n'
+             'Если телефон сел или капитану нужно войти с другого VK, организатор создаёт новый код — прогресс не теряется.', main_kb())
     else: send(peer,'Используйте кнопки меню.',main_kb())
+
 def bot_loop():
     global vk_api_obj,upload
     if not TOKEN or not GROUP_ID: print('VK_TOKEN или GROUP_ID не заданы'); return
@@ -119,6 +163,9 @@ def admin(f):
     @wraps(f)
     def w(*a,**kw): return f(*a,**kw) if session.get('admin') else redirect(url_for('login'))
     return w
+@app.get('/')
+def root():
+    return redirect('/admin')
 @app.get('/health')
 def health(): return {'status':'ok'}
 @app.route('/admin/login',methods=['GET','POST'])

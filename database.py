@@ -21,7 +21,9 @@ def set_(k,v):
 def get_(k,d=None):
     c=db(); r=c.execute('SELECT v FROM settings WHERE k=?',(k,)).fetchone(); c.close(); return r['v'] if r else d
 def teams():
-    c=db(); r=c.execute('SELECT * FROM teams ORDER BY id').fetchall(); c.close(); return r
+    c=db(); r=c.execute('''SELECT teams.*,
+        (SELECT COUNT(*) FROM awards WHERE awards.team_id=teams.id) AS awards_count
+        FROM teams ORDER BY id''').fetchall(); c.close(); return r
 def team(tid):
     c=db(); r=c.execute('SELECT * FROM teams WHERE id=?',(tid,)).fetchone(); c.close(); return r
 def by_vk(vk):
