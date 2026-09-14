@@ -1,10 +1,43 @@
-<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Админка</title><link rel="stylesheet" href="/static/style.css">
-<div class="wrap"><header><div><h1>🏔 Посвящение в Горную Академию</h1><p>Админ-панель</p></div><a href="/admin/logout">Выйти</a></header>
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Админка — Горная Академия</title><link rel="stylesheet" href="/static/style.css"></head>
+<body><div class="wrap">
+<header><div><h1>🏔 Посвящение в Горную Академию</h1><p class="muted">Настройка команд, кодов, предложений, кладов и статистики</p></div><a href="/admin/logout">Выйти</a></header>
 {% with messages=get_flashed_messages(with_categories=true) %}{% for c,m in messages %}<div class="flash {{c}}">{{m}}</div>{% endfor %}{% endwith %}
-<section><h2>🎮 Мероприятие</h2><p>Сейчас: <b>{{'🟢 активно' if event else '🔴 остановлено'}}</b></p><form method="post" action="/admin/event"><input type="hidden" name="value" value="{{'0' if event else '1'}}"><button>{{'⏸ Остановить выдачу' if event else '▶️ Запустить мероприятие'}}</button></form><p class="hint">Переключать раунды больше не нужно. Станция определяется по индивидуальному коду станции.</p></section>
-<section><h2>👥 Команды и клады</h2><div class="tablewrap"><table><tr><th>#</th><th>Команда</th><th>Капитан</th><th>Код регистрации</th><th>Слоги</th><th>Слова</th><th>Финиш</th><th>Клад</th><th>Действия</th></tr>
-{% for t in teams %}<tr><td>{{t.id}}</td><td><b>{{t.name}}</b><br><small>Коды станций в game_config.py</small></td><td>{{t.captain or 'не зарегистрирован'}}{% if t.vk_id %}<br><small>VK {{t.vk_id}}</small>{% endif %}</td><td><code>{{t.registration_code}}</code></td><td>{{t.awards_count}}/5</td><td>{{t.words_count}}</td><td>{{'🏆 готов' if t.finished else '—'}}</td><td>{% if treasures[t.id-1] %}🟢 открыт{% else %}🔴 закрыт{% endif %}{% if photos[t.id-1] %}<br><small>{{photos[t.id-1]}}</small>{% endif %}<form method="post" action="/admin/team/{{t.id}}/photo" enctype="multipart/form-data"><input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp"><input type="hidden" name="enabled" value="1"><button>Загрузить и открыть</button></form><form method="post" action="/admin/team/{{t.id}}/photo"><input type="hidden" name="enabled" value="0"><button>Скрыть</button></form></td><td class="actions"><form method="post" action="/admin/team/{{t.id}}/new-code"><button>🔑 Новый 5-значный код</button></form><form method="post" action="/admin/team/{{t.id}}/unlink"><button>🔌 Отвязать</button></form><form method="post" action="/admin/team/{{t.id}}/reset" onsubmit="return confirm('Сбросить прогресс команды?')"><button>♻️ Сбросить</button></form></td></tr>{% endfor %}</table></div></section>
-<section><h2>📊 Статистика</h2><div class="stats"><div><b>{{stats.teams}}</b><span>команд</span></div><div><b>{{stats.captains}}</b><span>капитанов</span></div><div><b>{{stats.awards}}</b><span>слогов</span></div><div><b>{{stats.finished}}</b><span>финишировали</span></div></div></section>
-<section><h2>📌 Как выдаются слоги</h2><p>Для каждой команды есть 5 отдельных кодов станции. Организатор станции сообщает капитану код. Капитан отправляет его боту. Бот сам определяет команду + станцию + нужный слог. Ничего переключать в админке во время прохождения станций не нужно.</p></section>
-<section><h2>🔗 Адрес админки</h2><code>/admin</code><p class="hint">Открывается как: ваш-домен/admin</p></section>
+
+<div class="stats"><div><b>{{stats.teams}}</b><span>команд</span></div><div><b>{{stats.captains}}</b><span>капитанов</span></div><div><b>{{stats.awards}}</b><span>выдано слогов</span></div><div><b>{{stats.finished}}</b><span>финишировали</span></div></div>
+
+<section><h2>🎮 Игра</h2><p>Сейчас: {% if event %}<span class="ok">🟢 выдача кодов разрешена</span>{% else %}<span class="muted">🔴 выдача кодов остановлена</span>{% endif %}</p>
+<form method="post" action="/admin/event"><input type="hidden" name="value" value="{{'0' if event else '1'}}"><button>{{'⏸ Остановить выдачу слогов' if event else '▶️ Запустить выдачу слогов'}}</button></form>
+<p class="small muted">Раундов здесь больше нет. Команда получает слог только после ввода своего кода конкретной станции.</p></section>
+
+<section><h2>📍 Где сейчас команды</h2><p class="small muted">✅ — станция уже пройдена. ➡️ — первая ещё не пройденная станция для команды. Это показывает прогресс, а не физическое местоположение, если маршрут команды организован в произвольном порядке.</p>
+<div class="tablewrap"><table><tr><th>Станция</th>{% for t in teams %}<th>{{t.name}}</th>{% endfor %}</tr>
+{% for row in matrix %}<tr><td><b>{{row.station}}</b><br>{{row.name}}</td>{% for cell in row.cells %}<td>{% if cell.passed %}<span class="ok">✅ Пройдена</span>{% else %}<span class="next">➡️ Не пройдена</span>{% endif %}</td>{% endfor %}</tr>{% endfor %}</table></div></section>
+
+<section><h2>⚙️ Команды</h2><p class="small muted">Введите обычное предложение. Система автоматически разобьёт его на слова и на 5 слогов. Если получится не ровно 5 слогов, сохранение не разрешится.</p>
+{% for t in teams %}{% set cfg=config if false else none %}{% set sentence=t.sentence or '' %}
+<div class="teamcard">
+<div class="teamhead"><h3>Команда {{t.id}} — {{t.name}}</h3><div>{% if t.captain %}<span class="ok">Капитан: {{t.captain}}</span>{% else %}<span class="muted">Капитан не подключен</span>{% endif %}</div></div>
+<form method="post" action="/admin/team/{{t.id}}/save">
+<div class="row"><label>Название команды<input name="name" value="{{t.name}}"></label><label>5-значный код капитана<input name="registration_code" inputmode="numeric" maxlength="5" value="{{t.registration_code or ''}}"></label></div>
+<label>Финальное предложение<input name="sentence" value="{{sentence}}" placeholder="Например: ГОРЫ ДАРЯТ НАМ СИЛУ"></label>
+<div class="codes"><div><b>Коды станций</b></div>
+{% for s in range(1,6) %}<label>{{s}}. {{['Верёвки','Танцы','Зарисовка фраз','Лабиринт','Переправа'][s-1]}}<input name="code_{{s}}" class="station-code" data-station="{{s}}" inputmode="numeric" maxlength="4" value=""></label>{% endfor %}</div>
+<!-- values filled by JS below from server-side JSON -->
+<div id="cfg-{{t.id}}" data-codes='{{t.station_codes_json|e}}'></div>
+<button class="primary" type="submit">💾 Сохранить команду</button>
+</form>
+<div class="preview"><b>Автоматический разбор:</b> сохранённые слова: {% if t.words_json and t.words_json != '[]' %}{{t.words_json}}{% else %}<span class="muted">ещё не настроены</span>{% endif %}<br>Слоги: {% if t.syllables_json and t.syllables_json != '[]' %}{{t.syllables_json}}{% else %}<span class="muted">ещё не настроены</span>{% endif %}</div>
+<div class="actions"><form method="post" action="/admin/team/{{t.id}}/generate-station-codes"><button>🎲 Сгенерировать 5 кодов станций</button></form><form method="post" action="/admin/team/{{t.id}}/new-code"><button>🔑 Новый код регистрации</button></form><form method="post" action="/admin/team/{{t.id}}/unlink"><button>🔌 Отвязать капитана</button></form><form method="post" action="/admin/team/{{t.id}}/reset" onsubmit="return confirm('Сбросить весь прогресс команды?')"><button>♻️ Сбросить прогресс</button></form></div>
+<div class="treasure"><h4>🏆 Клад команды {{t.id}}</h4>{% set photo=photos[t.id-1] %}<p>{% if photo %}Фото загружено: <b>{{photo}}</b>{% else %}<span class="muted">Фото ещё не загружено</span>{% endif %}</p>{% if photo %}<img src="/admin/photos/{{photo}}" alt="Клад команды {{t.id}}">{% endif %}
+<form method="post" action="/admin/team/{{t.id}}/photo" enctype="multipart/form-data"><input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp"><input type="hidden" name="enabled" value="1"><button>📷 Загрузить / открыть клад</button></form><form method="post" action="/admin/team/{{t.id}}/photo"><input type="hidden" name="enabled" value="0"><button>🔒 Скрыть клад</button></form></div>
+</div>{% endfor %}</section>
 </div>
+<script>
+for (const el of document.querySelectorAll('[id^="cfg-"]')) {
+  let codes={}; try{ codes=JSON.parse(el.dataset.codes||'{}') }catch(e){}
+  const form=el.previousElementSibling;
+  if(form){ for(let s=1;s<=5;s++){ const input=form.querySelector('[name="code_'+s+'"]'); if(input) input.value=codes[String(s)]||''; } }
+}
+</script>
+</body></html>
