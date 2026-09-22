@@ -1,43 +1,86 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Админка — Горная Академия</title><link rel="stylesheet" href="/static/style.css"></head>
-<body><div class="wrap">
-<header><div><h1>🏔 Посвящение в Горную Академию</h1><p class="muted">Настройка команд, кодов, предложений, кладов и статистики</p></div><a href="/admin/logout">Выйти</a></header>
-{% with messages=get_flashed_messages(with_categories=true) %}{% for c,m in messages %}<div class="flash {{c}}">{{m}}</div>{% endfor %}{% endwith %}
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Посвящение — админка</title><link rel="stylesheet" href="/static/style.css"></head>
+<body>
+<div class="wrap">
+<header><div><h1>🏔 Посвящение в Горную Академию</h1><p class="muted">Админ-панель</p></div><a class="button ghost" href="/admin/logout">Выйти</a></header>
+{% with messages = get_flashed_messages(with_categories=true) %}{% for c,m in messages %}<div class="flash {{c}}">{{m}}</div>{% endfor %}{% endwith %}
 
-<div class="stats"><div><b>{{stats.teams}}</b><span>команд</span></div><div><b>{{stats.captains}}</b><span>капитанов</span></div><div><b>{{stats.awards}}</b><span>выдано слогов</span></div><div><b>{{stats.finished}}</b><span>финишировали</span></div></div>
-
-<section><h2>🎮 Игра</h2><p>Сейчас: {% if event %}<span class="ok">🟢 выдача кодов разрешена</span>{% else %}<span class="muted">🔴 выдача кодов остановлена</span>{% endif %}</p>
-<form method="post" action="/admin/event"><input type="hidden" name="value" value="{{'0' if event else '1'}}"><button>{{'⏸ Остановить выдачу слогов' if event else '▶️ Запустить выдачу слогов'}}</button></form>
-<p class="small muted">Раундов здесь больше нет. Команда получает слог только после ввода своего кода конкретной станции.</p></section>
-
-<section><h2>📍 Где сейчас команды</h2><p class="small muted">✅ — станция уже пройдена. ➡️ — первая ещё не пройденная станция для команды. Это показывает прогресс, а не физическое местоположение, если маршрут команды организован в произвольном порядке.</p>
-<div class="tablewrap"><table><tr><th>Станция</th>{% for t in teams %}<th>{{t.name}}</th>{% endfor %}</tr>
-{% for row in matrix %}<tr><td><b>{{row.station}}</b><br>{{row.name}}</td>{% for cell in row.cells %}<td>{% if cell.passed %}<span class="ok">✅ Пройдена</span>{% else %}<span class="next">➡️ Не пройдена</span>{% endif %}</td>{% endfor %}</tr>{% endfor %}</table></div></section>
-
-<section><h2>⚙️ Команды</h2><p class="small muted">Введите обычное предложение. Система автоматически разобьёт его на слова и на 5 слогов. Если получится не ровно 5 слогов, сохранение не разрешится.</p>
-{% for t in teams %}{% set cfg=config if false else none %}{% set sentence=t.sentence or '' %}
-<div class="teamcard">
-<div class="teamhead"><h3>Команда {{t.id}} — {{t.name}}</h3><div>{% if t.captain %}<span class="ok">Капитан: {{t.captain}}</span>{% else %}<span class="muted">Капитан не подключен</span>{% endif %}</div></div>
-<form method="post" action="/admin/team/{{t.id}}/save">
-<div class="row"><label>Название команды<input name="name" value="{{t.name}}"></label><label>5-значный код капитана<input name="registration_code" inputmode="numeric" maxlength="5" value="{{t.registration_code or ''}}"></label></div>
-<label>Финальное предложение<input name="sentence" value="{{sentence}}" placeholder="Например: ГОРЫ ДАРЯТ НАМ СИЛУ"></label>
-<div class="codes"><div><b>Коды станций</b></div>
-{% for s in range(1,6) %}<label>{{s}}. {{['Верёвки','Танцы','Зарисовка фраз','Лабиринт','Переправа'][s-1]}}<input name="code_{{s}}" class="station-code" data-station="{{s}}" inputmode="numeric" maxlength="4" value=""></label>{% endfor %}</div>
-<!-- values filled by JS below from server-side JSON -->
-<div id="cfg-{{t.id}}" data-codes='{{t.station_codes_json|e}}'></div>
-<button class="primary" type="submit">💾 Сохранить команду</button>
-</form>
-<div class="preview"><b>Автоматический разбор:</b> сохранённые слова: {% if t.words_json and t.words_json != '[]' %}{{t.words_json}}{% else %}<span class="muted">ещё не настроены</span>{% endif %}<br>Слоги: {% if t.syllables_json and t.syllables_json != '[]' %}{{t.syllables_json}}{% else %}<span class="muted">ещё не настроены</span>{% endif %}</div>
-<div class="actions"><form method="post" action="/admin/team/{{t.id}}/generate-station-codes"><button>🎲 Сгенерировать 5 кодов станций</button></form><form method="post" action="/admin/team/{{t.id}}/new-code"><button>🔑 Новый код регистрации</button></form><form method="post" action="/admin/team/{{t.id}}/unlink"><button>🔌 Отвязать капитана</button></form><form method="post" action="/admin/team/{{t.id}}/reset" onsubmit="return confirm('Сбросить весь прогресс команды?')"><button>♻️ Сбросить прогресс</button></form></div>
-<div class="treasure"><h4>🏆 Клад команды {{t.id}}</h4>{% set photo=photos[t.id-1] %}<p>{% if photo %}Фото загружено: <b>{{photo}}</b>{% else %}<span class="muted">Фото ещё не загружено</span>{% endif %}</p>{% if photo %}<img src="/admin/photos/{{photo}}" alt="Клад команды {{t.id}}">{% endif %}
-<form method="post" action="/admin/team/{{t.id}}/photo" enctype="multipart/form-data"><input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp"><input type="hidden" name="enabled" value="1"><button>📷 Загрузить / открыть клад</button></form><form method="post" action="/admin/team/{{t.id}}/photo"><input type="hidden" name="enabled" value="0"><button>🔒 Скрыть клад</button></form></div>
-</div>{% endfor %}</section>
+<div class="stats">
+<div><b>{{stats.teams}}</b><span>команд</span></div><div><b>{{stats.captains}}</b><span>капитанов</span></div><div><b>{{stats.passes}}</b><span>пройдено станций</span></div><div><b>{{stats.finished}}</b><span>завершили маршрут</span></div>
 </div>
-<script>
-for (const el of document.querySelectorAll('[id^="cfg-"]')) {
-  let codes={}; try{ codes=JSON.parse(el.dataset.codes||'{}') }catch(e){}
-  const form=el.previousElementSibling;
-  if(form){ for(let s=1;s<=5;s++){ const input=form.querySelector('[name="code_'+s+'"]'); if(input) input.value=codes[String(s)]||''; } }
-}
-</script>
+
+<section>
+<h2>⚙️ Управление мероприятием</h2>
+<form method="post" action="/admin/event" class="inline"><input type="hidden" name="enabled" value="{{0 if event_enabled else 1}}"><button class="primary">{{'⏸ Остановить приём кодов' if event_enabled else '▶️ Запустить мероприятие'}}</button></form>
+<form method="post" action="/admin/reset-all" class="inline" onsubmit="return confirm('Сбросить прогресс ВСЕХ команд?')"><button class="danger">♻️ Сбросить прогресс всех команд</button></form>
+<p class="muted small">Раундов нет. Команда сама двигается по своему маршрутному листу и вводит 4-значный код после прохождения очередной станции.</p>
+</section>
+
+<section>
+<h2>🏁 Финал</h2>
+<form method="post" action="/admin/general">
+<label>Куда направить команды после 6-й станции</label>
+<textarea name="final_location" rows="3" required>{{final_location}}</textarea>
+<label>Клятва</label>
+<textarea name="oath" rows="5" required>{{oath}}</textarea>
+<button class="primary">Сохранить финал</button>
+</form>
+</section>
+
+<section>
+<h2>📍 Станции и коды</h2>
+<p class="muted small">Код каждой станции одинаковый для всех 6 команд. Для каждой станции — свой 4-значный код.</p>
+<table><tr><th>№</th><th>Название</th><th>Код</th><th>Сохранить</th></tr>
+{% for s in stations %}<tr><form method="post" action="/admin/station/{{s.id}}"><td>{{s.id}}</td><td><input name="name" value="{{s.name}}" required></td><td><input name="code" value="{{s.code}}" inputmode="numeric" maxlength="4" required></td><td><button class="smallbtn">Сохранить</button></td></form></tr>{% endfor %}</table>
+</section>
+
+<section>
+<h2>🚶 Задания на переход</h2>
+<p class="muted small">Всего 7 заданий: первое даётся перед первой станцией, далее по одному после каждого из 6 кодов.</p>
+{% for task in tasks %}<form method="post" action="/admin/task/{{task.position}}" class="taskrow"><div class="tasknum">{{task.position}}</div><textarea name="text" rows="2" required>{{task.text}}</textarea><button class="smallbtn">Сохранить</button></form>{% endfor %}
+</section>
+
+<section>
+<h2>🧭 Маршрутные листы</h2>
+<p class="muted small">У каждой команды должен быть маршрут из всех 6 станций, без повторений.</p>
+{% for t in teams %}
+<div class="teamcard">
+<div class="teamhead"><h3>{{t.id}}. {{t.name}}</h3><span>{% if t.captain_name %}👤 {{t.captain_name}}{% else %}⚪ капитан не зарегистрирован{% endif %}</span></div>
+<form method="post" action="/admin/team/{{t.id}}/route" class="routeform">
+{% set route = [] %}{% for r in range(1,7) %}<label>{{r}}<select name="position_{{r}}" required>{% for s in stations %}<option value="{{s.id}}" {% if routes[t.id][r-1].station_id == s.id %}selected{% endif %}>{{s.name}}</option>{% endfor %}</select></label>{% endfor %}
+<button class="primary">Сохранить маршрут</button>
+</form>
+</div>
+{% endfor %}
+</section>
+
+<section>
+<h2>🔐 Команды и капитаны</h2>
+<table><tr><th>Команда</th><th>Название</th><th>Код капитана</th><th>VK ID</th><th>Действия</th></tr>
+{% for t in teams %}<tr>
+<td>{{t.id}}</td>
+<td><form method="post" action="/admin/team/{{t.id}}" class="inline"><input name="name" value="{{t.name}}" required><input name="registration_code" value="{{t.registration_code}}" maxlength="5" inputmode="numeric" required><button class="smallbtn">Сохранить</button></form></td>
+<td>{{t.registration_code}}</td><td>{{t.vk_user_id or '—'}}</td>
+<td class="actions"><form method="post" action="/admin/team/{{t.id}}/recovery"><button class="smallbtn">🔑 Новый код восстановления</button></form><form method="post" action="/admin/team/{{t.id}}/unlink"><button class="smallbtn">🔌 Отвязать</button></form><form method="post" action="/admin/team/{{t.id}}/reset" onsubmit="return confirm('Сбросить прогресс этой команды?')"><button class="smallbtn danger">♻️ Сброс</button></form></td>
+</tr>{% endfor %}</table>
+<p class="muted small">Код капитана — 5 цифр. Код восстановления создаётся отдельно и действует ограниченное время.</p>
+</section>
+
+<section>
+<h2>📊 Кто где находится</h2>
+<table><tr><th>Команда</th><th>Пройдено</th><th>Текущая станция</th><th>Следующая станция</th><th>Статус</th></tr>
+{% for t in teams %}
+{% set passed = passes_map[t.id] %}
+{% set expected = expected_map[t.id] %}
+<tr><td><b>{{t.name}}</b></td><td>{{passed}}/6</td><td>{% if expected %}{{expected.position}}. {{expected.name}}{% else %}—{% endif %}</td><td>{% if expected %}{{expected.name}}{% else %}Финал{% endif %}</td><td>{% if t.finished %}🏁 Завершил{% elif t.vk_user_id %}🔄 В игре{% else %}⚪ Не зарегистрирован{% endif %}</td></tr>
+{% endfor %}</table>
+</section>
+
+<section>
+<h2>🗺 Общий маршрутный лист</h2>
+<table><tr><th>Команда</th>{% for n in range(1,7) %}<th>{{n}}</th>{% endfor %}</tr>
+{% for t in teams %}<tr><td>{{t.name}}</td>{% for r in routes[t.id] %}<td>{{r.name}}</td>{% endfor %}</tr>{% endfor %}</table>
+</section>
+</div>
 </body></html>
