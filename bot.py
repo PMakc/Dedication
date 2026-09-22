@@ -214,12 +214,13 @@ def handle_station_code(peer_id, team, text):
     next_station = database.expected_station(team['id'])
     task = database.get_task_text(step + 1)
     oath_now = oath_text(team)
+    oath_display = oath_now.replace('📜 Клятва\n\n', '')
 
     if next_station:
         send_message(
             peer_id,
             f"✅ Станция «{expected['name']}» пройдена!\n\n"
-            f"📜 Клятва открыта:\n{oath_now.replace('📜 Клятва\\n\\n', '')}\n\n"
+            f"📜 Клятва открыта:\n{oath_display}\n\n"
             f"Задание на переход:\n{task}\n\n"
             f"Следующая станция: {next_station['name']}",
             team,
@@ -228,7 +229,7 @@ def handle_station_code(peer_id, team, text):
         send_message(
             peer_id,
             f"✅ Станция «{expected['name']}» пройдена!\n\n"
-            f"📜 Клятва открыта полностью:\n{oath_now.replace('📜 Клятва\\n\\n', '')}\n\n"
+            f"📜 Клятва открыта полностью:\n{oath_display}\n\n"
             f"Задание на путь к месту посвящения:\n{task}\n\n"
             f"📍 Место посвящения:\n{database.get_setting('final_location', 'Не задано.')}",
             team,
